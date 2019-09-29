@@ -1,0 +1,31 @@
+namespace com.paulovap.asteroids.flatbuffers;
+
+table ICoordinates {
+  lat:float64;
+  lon:float64;
+}
+
+table IGeoLocation {
+  type: string;
+  coordinates: ICoordinates;
+}
+
+
+table IAsteroid {
+  name: string;
+  id: int32;
+  nametype: string;
+  recclass: string;
+  mass: float64;
+  fall: string;
+  year: string;
+  reclat: float64;
+  reclong: float64;
+  geolocation: IGeoLocation;
+}
+
+table IAsteroids {
+  asteroids: [IAsteroid];
+}
+
+root_type IAsteroids;

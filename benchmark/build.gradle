@@ -2,13 +2,12 @@ apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 apply plugin: 'androidx.benchmark'
 apply plugin: 'kotlin-android-extensions'
-apply plugin: 'kotlin-kapt'
 
 android {
     compileSdkVersion 28
 
     defaultConfig {
-        minSdkVersion 14
+        minSdkVersion 23
         targetSdkVersion 28
         versionCode 1
         versionName "1.0"
@@ -22,6 +21,10 @@ android {
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'benchmark-proguard-rules.pro'
         }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
     }
 
     kotlinOptions {
@@ -37,6 +40,7 @@ dependencies {
     // want to benchmark to a library module:
     // https://developer.android.com/studio/projects/android-library#Convert
 
+    implementation project(':serializers')
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
     androidTestImplementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
     androidTestImplementation "androidx.benchmark:benchmark-junit4:1.0.0-alpha06"
@@ -47,9 +51,13 @@ dependencies {
     androidTestImplementation 'androidx.test.ext:junit:1.1.1'
 
     // MOSHI
-    kapt("com.squareup.moshi:moshi-kotlin-codegen:1.8.0")
     implementation("com.squareup.moshi:moshi-kotlin:1.8.0")
 
     // GSON
     implementation 'com.google.code.gson:gson:2.8.5'
+
+    //FlatBuffers
+    implementation 'com.google.flatbuffers:flatbuffers-java:1.11.0'
+    // Protobuffers
+    implementation 'com.google.protobuf:protobuf-java:3.8.0'
 }

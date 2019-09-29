@@ -1,14 +1,15 @@
 package com.paulovap.serialbenchmark
 
 import android.os.Bundle
-import android.os.Debug
-import com.google.android.material.snackbar.Snackbar
+import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
 import android.view.Menu
 import android.view.MenuItem
-import com.paulovap.benchmark.FlexBufferAdapter
+import com.paulovap.benchmark.asteroids.ProtoAdapter
+import com.paulovap.benchmark.asteroids.FlexBufferAdapter
 
 import kotlinx.android.synthetic.main.activity_main.*
+import java.io.File
 
 class MainActivity : AppCompatActivity() {
 
@@ -17,20 +18,6 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         setSupportActionBar(toolbar)
 
-        fab.setOnClickListener { view ->
-            Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                    .setAction("Action", null).show()
-        }
-
-        testFlexBuffer()
-    }
-
-    fun testFlexBuffer() {
-        val fb = FlexBufferAdapter()
-        val data = applicationContext.resources.openRawResource(R.raw.asteroids).readBytes()
-        Debug.startMethodTracing("flex")
-        fb.deserialize(data)
-        Debug.stopMethodTracing()
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {

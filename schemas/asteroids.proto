@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+option java_package = "com.paulovap.asteroids.proto";
+option java_multiple_files = true;
+
+message IGeolocation {
+  string type = 1;
+  repeated double coordinates = 2;
+}
+
+
+message IAsteroid {
+  string name = 1;
+  int32 id = 2;
+  string nametype = 3;
+  string recclass = 4;
+  double mass = 5;
+  string fall = 6;
+  string year = 7;
+  double reclat = 8;
+  double reclong = 9;
+  IGeolocation geolocation = 10;
+}
+
+message IAsteroids {
+  repeated IAsteroid asteroids = 1;
+}
+
