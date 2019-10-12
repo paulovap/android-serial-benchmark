@@ -5,7 +5,7 @@ import com.google.flatbuffers.FlexBuffersBuilder.BUILDER_FLAG_SHARE_ALL
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
-class FlexBufferAdapter {
+class FlexBufferReadBufAdapter {
 
     companion object {
         val EMPTY_COORD = doubleArrayOf(0.0, 0.0)
@@ -15,7 +15,7 @@ class FlexBufferAdapter {
         val buffer = ByteBuffer.wrap(data)
         buffer.order(ByteOrder.LITTLE_ENDIAN)
 
-        val root = FlexBuffers.getRoot(buffer)
+        val root = FlexBuffersReadBuf.getRoot(buffer)
         val asteroidList = root.asMap().get("asteroids").asVector()
 
         val asteroids = Array(asteroidList.size()) {

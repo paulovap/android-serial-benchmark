@@ -17,13 +17,13 @@
 package com.google.flatbuffers;
 
 
-
-import java.nio.ByteBuffer;
-import java.util.Arrays;
-
 import static com.google.flatbuffers.FlexBuffers.Unsigned.byteToUnsignedInt;
 import static com.google.flatbuffers.FlexBuffers.Unsigned.intToUnsignedLong;
 import static com.google.flatbuffers.FlexBuffers.Unsigned.shortToUnsignedInt;
+
+import java.math.BigInteger;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 
 /// @file
 /// @addtogroup flatbuffers_java_api
@@ -244,7 +244,7 @@ public class FlexBuffers {
         public boolean isNull() {
             return type == FBT_NULL;
         }
-
+         
         /**
          * Checks whether the element is boolean type
          * @return true if boolean type
@@ -636,20 +636,15 @@ public class FlexBuffers {
     // Stores size in `byte_width_` bytes before end position.
     private static abstract class Sized extends Object {
 
-        int size = -1;
+        private final int size;
 
         Sized(ByteBuffer buff, int end, int byteWidth) {
             super(buff, end, byteWidth);
-
+            size = readInt(bb, end - byteWidth, byteWidth);
         }
 
         public int size() {
-            if (size == -1) {
-                size = readInt(bb, end - byteWidth, byteWidth);
-                return size;
-            } else {
-                return size;
-            }
+            return size;
         }
     }
 
@@ -730,37 +725,10 @@ public class FlexBuffers {
      */
     public static class Key extends Object {
 
-        private static final Key EMPTY = new Key(EMPTY_BB, 1, 1);
-
-        int size = -1;
+        private static final Key EMPTY = new Key(EMPTY_BB, 0, 0);
 
         Key(ByteBuffer buff, int end, int byteWidth) {
             super(buff, end, byteWidth);
-        }
-
-        public int size() {
-            if (size != -1) {
-                return size;
-            } else {
-                for (int i = end; ; i++) {
-                    if (bb.get(i) == 0) {
-                        size = i - end;
-                        break;
-                    }
-                }
-                return size;
-            }
-        }
-
-        public int hashCode() {
-            int h = 0;
-            final int len = size();
-            if (len > 0) {
-                for (int i = 0; i < len; i++) {
-                    h = 31 * h + bb.get(i);
-                }
-            }
-            return h;
         }
 
         /**
@@ -831,32 +799,9 @@ public class FlexBuffers {
      */
     public static class Map extends Vector {
         private static final Map EMPTY_MAP = new Map(EMPTY_BB, 1, 1);
-        //private SparseIntArray keyMap;
-
-        static class IntInt implements Comparable {
-            int hash;
-            int index;
-            IntInt(int hash, int index) {
-                this.hash = hash;
-                this.index = index;
-            }
-
-            @Override
-            public int compareTo(java.lang.Object o) {
-                return hash - ((IntInt)o).hash;
-            }
-        }
-        private IntInt[] kMap; // high is hashmap low is index
 
         Map(ByteBuffer bb, int end, int byteWidth) {
             super(bb, end, byteWidth);
-            int size = size();
-            //keyMap = new SparseIntArray(size);
-            kMap = new IntInt[size];
-            populateKeyMap();
-//            for (int i=0; i< size;i++) {
-//                keyMap.put(keyHashCode(i), i);
-//            }
         }
 
         /**
@@ -872,8 +817,7 @@ public class FlexBuffers {
          * @return reference to value in map
          */
         public Reference get(String key) {
-            return get(binarySearch2(key.hashCode()));
-            //return get(keyMap.get(key.hashCode(), -1));
+            return get(key.getBytes(StandardCharsets.UTF_8));
         }
 
         /**
@@ -881,8 +825,9 @@ public class FlexBuffers {
          * @return reference to value in map
          */
         public Reference get(byte[] key) {
-            int size = size();
-            int index = binarySearch(key);
+            KeyVector keys = keys();
+            int size = keys.size();
+            int index = binarySearch(keys, key);
             if (index >= 0 && index < size) {
                 return get(index);
             }
@@ -901,56 +846,6 @@ public class FlexBuffers {
                     indirect(bb, keysOffset, byteWidth),
                     readInt(bb, keysOffset + byteWidth, byteWidth),
                     FBT_KEY));
-        }
-
-        private void populateKeyMap() {
-            int len = size();
-            if (len <= 0) {
-                return;
-            }
-            final int num_prefixed_fields = 3;
-            int keysOffset = end - (byteWidth * num_prefixed_fields);
-            int keyVectorEnd = indirect(bb, keysOffset, byteWidth);
-            int keyVectorByteWidth = readInt(bb, keysOffset + byteWidth, byteWidth);
-
-            for(int index=0; index< len; index++) {
-                int childPos = keyVectorEnd + index * keyVectorByteWidth;
-                int keyPosEnd = indirect(bb, childPos, keyVectorByteWidth);
-
-                int h = 0;
-                for (int i = keyPosEnd; ; i++) {
-                    byte data = bb.get(i);
-                    if (data == 0) {
-                        break;
-                    }
-                    h = 31 * h + (char) data;
-                }
-                //keyMap.put(h, index);
-                kMap[index] = new IntInt(h, index);
-            }
-            Arrays.sort(kMap);
-        }
-
-        private int keyHashCode(int index) {
-            final int num_prefixed_fields = 3;
-            int keysOffset = end - (byteWidth * num_prefixed_fields);
-            int keyVectorEnd = indirect(bb, keysOffset, byteWidth);
-            int keyVectorByteWidth = readInt(bb, keysOffset + byteWidth, byteWidth);
-
-            int len = size();
-            if (index >= len) return 0;
-
-            int childPos = keyVectorEnd + index * keyVectorByteWidth;
-            int keyPosEnd = indirect(bb, childPos, keyVectorByteWidth);
-
-            int h = 0;
-            for (int i = keyPosEnd; ; i++) {
-                if (bb.get(i) == 0) {
-                    break;
-                }
-                h = 31 * h + (char)bb.get(i);
-            }
-            return h;
         }
 
         /**
@@ -983,39 +878,15 @@ public class FlexBuffers {
             return builder;
         }
 
-        private int binarySearch2(int hash) {
-            int low = 0;
-            int high = size() - 1;
-
-            while (low <= high) {
-                int mid = (low + high) >>> 1;
-                int cmp = kMap[mid].hash - hash;
-                if (cmp < 0)
-                    low = mid + 1;
-                else if (cmp > 0)
-                    high = mid - 1;
-                else
-                    return kMap[mid].index; // key found
-            }
-            return -(low + 1);  // key not found
-        }
         // Performs a binary search on a key vector and return index of the key in key vector
-        private int binarySearch(byte[] searchedKey) {
-            final int num_prefixed_fields = 3;
-            int keysOffset = end - (byteWidth * num_prefixed_fields);
-            int keyVectorEnd = indirect(bb, keysOffset, byteWidth);
-            int keyVectorByteWidth = readInt(bb, keysOffset + byteWidth, byteWidth);
-
+        private int binarySearch(KeyVector keys, byte[] searchedKey) {
             int low = 0;
-            int high = size() - 1;
+            int high = keys.size() - 1;
 
             while (low <= high) {
                 int mid = (low + high) >>> 1;
-
-                int childPos = keyVectorEnd + mid * keyVectorByteWidth;
-                int keyPosEnd = indirect(bb, childPos, keyVectorByteWidth);
-
-                int cmp = compareToKey(keyPosEnd, searchedKey);
+                Key k = keys.get(mid);
+                int cmp = k.compareTo(searchedKey);
                 if (cmp < 0)
                     low = mid + 1;
                 else if (cmp > 0)
@@ -1024,27 +895,6 @@ public class FlexBuffers {
                     return mid; // key found
             }
             return -(low + 1);  // key not found
-        }
-
-        int compareToKey(int keyStart, byte[] other) {
-            int ia = keyStart;
-            int io = 0;
-            byte c1, c2;
-            do {
-                c1 = bb.get(ia);
-                c2 = other[io];
-                if (c1 == '\0')
-                    return c1 - c2;
-                ia++;
-                io++;
-                if (io == other.length) {
-                    // in our buffer we have an additional \0 byte
-                    // but this does not exist in regular Java strings, so we return now
-                    return c1 - c2;
-                }
-            }
-            while (c1 == c2);
-            return c1 - c2;
         }
     }
 
@@ -1100,7 +950,7 @@ public class FlexBuffers {
          */
         public Reference get(int index) {
             long len = size();
-            if (index >= len && index <0) {
+            if (index >= len) {
                 return Reference.NULL_REFERENCE;
             }
             int packedType = byteToUnsignedInt(bb.get((int) (end + (len * byteWidth) + index)));

@@ -17,18 +17,12 @@
 package com.google.flatbuffers;
 
 
-import android.util.Log;
-import android.util.SparseIntArray;
-import android.util.SparseLongArray;
+import static com.google.flatbuffers.FlexBuffersReadBuf.Unsigned.byteToUnsignedInt;
+import static com.google.flatbuffers.FlexBuffersReadBuf.Unsigned.intToUnsignedLong;
+import static com.google.flatbuffers.FlexBuffersReadBuf.Unsigned.shortToUnsignedInt;
 
-import static com.google.flatbuffers.FlexBuffers.Unsigned.byteToUnsignedInt;
-import static com.google.flatbuffers.FlexBuffers.Unsigned.intToUnsignedLong;
-import static com.google.flatbuffers.FlexBuffers.Unsigned.shortToUnsignedInt;
-
-import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
 
 /// @file
 /// @addtogroup flatbuffers_java_api
@@ -42,12 +36,12 @@ import java.util.HashMap;
  * Example of usage:
  * <pre>
  * ByteBuffer bb = ... // load message from file or network
- * FlexBuffers.Reference r = FlexBuffers.getRoot(bb); // Reads the root element
- * FlexBuffers.Map map = r.asMap(); // We assumed root object is a map
+ * FlexBuffersReadBuf.Reference r = FlexBuffersReadBuf.getRoot(bb); // Reads the root element
+ * FlexBuffersReadBuf.Map map = r.asMap(); // We assumed root object is a map
  * System.out.println(map.get("name").asString()); // prints element with key "name"
  * </pre>
  */
-public class FlexBuffers {
+public class FlexBuffersReadBuf {
 
     // These are used as the upper 6 bits of a type field to indicate the actual
     // type.
@@ -103,7 +97,7 @@ public class FlexBuffers {
     /** Represent a vector of booleans type */
     public static final int FBT_VECTOR_BOOL = 36;  // To Allow the same type of conversion of type to vector type
 
-    private static final ByteBuffer EMPTY_BB = ByteBuffer.allocate(1).asReadOnlyBuffer();
+    private static final ReadBuf EMPTY_BB = new ArrayReadBuf(new byte[1]);
 
     /**
      * Checks where a type is a typed vector
@@ -154,13 +148,13 @@ public class FlexBuffers {
     }
 
     // return position of the element that the offset is pointing to
-    private static int indirect(ByteBuffer bb, int offset, int byteWidth) {
-        // we assume all offset fits on a int, since ByteBuffer operates with that assumption
+    private static int indirect(ReadBuf bb, int offset, int byteWidth) {
+        // we assume all offset fits on a int, since ReadBuf operates with that assumption
         return (int) (offset - readUInt(bb, offset, byteWidth));
     }
 
     // read unsigned int with size byteWidth and return as a 64-bit integer
-    private static long readUInt(ByteBuffer buff, int end, int byteWidth) {
+    private static long readUInt(ReadBuf buff, int end, int byteWidth) {
         switch (byteWidth) {
             case 1: return byteToUnsignedInt(buff.get(end));
             case 2: return shortToUnsignedInt(buff.getShort(end));
@@ -171,12 +165,12 @@ public class FlexBuffers {
     }
 
     // read signed int of size byteWidth and return as 32-bit int
-    private static int readInt(ByteBuffer buff, int end, int byteWidth) {
+    private static int readInt(ReadBuf buff, int end, int byteWidth) {
         return (int) readLong(buff, end, byteWidth);
     }
 
     // read signed int of size byteWidth and return as 64-bit int
-    private static long readLong(ByteBuffer buff, int end, int byteWidth) {
+    private static long readLong(ReadBuf buff, int end, int byteWidth) {
         switch (byteWidth) {
             case 1: return buff.get(end);
             case 2: return buff.getShort(end);
@@ -186,7 +180,7 @@ public class FlexBuffers {
         }
     }
 
-    private static double readDouble(ByteBuffer buff, int end, int byteWidth) {
+    private static double readDouble(ReadBuf buff, int end, int byteWidth) {
         switch (byteWidth) {
             case 4: return buff.getFloat(end);
             case 8: return buff.getDouble(end);
@@ -201,6 +195,17 @@ public class FlexBuffers {
      * @return {@link Reference} to the root object
      */
     public static Reference getRoot(ByteBuffer buffer) {
+        return getRoot(buffer.hasArray() ? new ArrayReadBuf(buffer.array())
+                                         : new ByteBufferReadBuf(buffer));
+    }
+
+    /**
+     * Reads a FlexBuffer message in ReadBuf and returns {@link Reference} to
+     * the root element.
+     * @param buffer ReadBuf containing FlexBuffer message
+     * @return {@link Reference} to the root object
+     */
+    public static Reference getRoot(ReadBuf buffer) {
         // See Finish() below for the serialization counterpart of this.
         // The root ends at the end of the buffer, so we parse backwards from there.
         int end = buffer.limit();
@@ -216,17 +221,17 @@ public class FlexBuffers {
     public static class Reference {
 
         private static final Reference NULL_REFERENCE = new Reference(EMPTY_BB, 0, 1, 0);
-        private ByteBuffer bb;
+        private ReadBuf bb;
         private int end;
         private int parentWidth;
         private int byteWidth;
         private int type;
 
-        Reference(ByteBuffer bb, int end, int parentWidth, int packedType) {
+        Reference(ReadBuf bb, int end, int parentWidth, int packedType) {
             this(bb, end, parentWidth, (1 << (packedType & 3)), packedType >> 2);
         }
 
-        Reference(ByteBuffer bb, int end, int parentWidth, int byteWidth, int type) {
+        Reference(ReadBuf bb, int end, int parentWidth, int byteWidth, int type) {
             this.bb = bb;
             this.end = end;
             this.parentWidth = parentWidth;
@@ -249,7 +254,7 @@ public class FlexBuffers {
         public boolean isNull() {
             return type == FBT_NULL;
         }
-
+         
         /**
          * Checks whether the element is boolean type
          * @return true if boolean type
@@ -488,13 +493,13 @@ public class FlexBuffers {
             if (isString()) {
                 int start = indirect(bb, end, parentWidth);
                 int size = readInt(bb, start - byteWidth, byteWidth);
-                return Utf8.getDefault().decodeUtf8(bb, start, size);
+                return bb.getString(start, size);
             }
             else if (isKey()){
                 int start = indirect(bb, end, byteWidth);
                 for (int i = start; ; i++) {
                     if (bb.get(i) == 0) {
-                        return Utf8.getDefault().decodeUtf8(bb, start, i - start);
+                        return bb.getString(start, i - start);
                     }
                 }
             } else {
@@ -521,8 +526,8 @@ public class FlexBuffers {
         public Vector asVector() {
             if (isVector()) {
                 return new Vector(bb, indirect(bb, end, parentWidth), byteWidth);
-            } else if (FlexBuffers.isTypedVector(type)) {
-                return new TypedVector(bb, indirect(bb, end, parentWidth), byteWidth, FlexBuffers.toTypedVectorElementType(type));
+            } else if (FlexBuffersReadBuf.isTypedVector(type)) {
+                return new TypedVector(bb, indirect(bb, end, parentWidth), byteWidth, FlexBuffersReadBuf.toTypedVectorElementType(type));
             } else {
                 return Vector.empty();
             }
@@ -620,11 +625,11 @@ public class FlexBuffers {
      * Points into the data buffer and allows access to one type.
      */
     private static abstract class Object {
-        ByteBuffer bb;
+        ReadBuf bb;
         int end;
         int byteWidth;
 
-        Object(ByteBuffer buff, int end, int byteWidth) {
+        Object(ReadBuf buff, int end, int byteWidth) {
             this.bb = buff;
             this.end = end;
             this.byteWidth = byteWidth;
@@ -640,32 +645,30 @@ public class FlexBuffers {
 
     // Stores size in `byte_width_` bytes before end position.
     private static abstract class Sized extends Object {
-        int size = -1;
-        Sized(ByteBuffer buff, int end, int byteWidth) {
+
+        final int size;
+
+        Sized(ReadBuf buff, int end, int byteWidth) {
             super(buff, end, byteWidth);
+            size = readInt(bb, end - byteWidth, byteWidth);
         }
 
         public int size() {
-            if (size != -1) {
-                return size;
-            } else {
-                size = readInt(bb, end - byteWidth, byteWidth);
-                return size;
-            }
+            return size;
         }
     }
 
     /**
      * Represents a array of bytes element in the buffer
      *
-     * <p>It can be converted to `ByteBuffer` using {@link data()},
-     * copied into a byte[] using {@link getBytes()} or
-     * have individual bytes accessed individually using {@link get(int)}</p>
+     * <p>It can be converted to `ReadBuf` using {@link data()},
+     * copied into a byte[] using {@code getBytes()} or
+     * have individual bytes accessed individually using {@code get(int)}</p>
      */
     public static class Blob extends Sized {
-        static final Blob EMPTY = new Blob(EMPTY_BB, 0, 1);
+        static final Blob EMPTY = new Blob(EMPTY_BB, 1, 1);
 
-        Blob(ByteBuffer buff, int end, int byteWidth) {
+        Blob(ReadBuf buff, int end, int byteWidth) {
             super(buff, end, byteWidth);
         }
 
@@ -675,11 +678,11 @@ public class FlexBuffers {
         }
 
         /**
-         * Return {@link Blob} as `ByteBuffer`
+         * Return {@link Blob} as `ReadBuf`
          * @return blob as `ByteBuffer`
          */
         public ByteBuffer data() {
-            ByteBuffer dup = bb.duplicate();
+            ByteBuffer dup = ByteBuffer.wrap(bb.data());
             dup.position(end);
             dup.limit(end + size());
             return dup.asReadOnlyBuffer().slice();
@@ -712,7 +715,7 @@ public class FlexBuffers {
          */
         @Override
         public String toString() {
-            return Utf8.getDefault().decodeUtf8(bb, end, size());
+            return bb.getString(end, size());
         }
 
         /**
@@ -721,7 +724,7 @@ public class FlexBuffers {
         @Override
         public StringBuilder toString(StringBuilder sb) {
             sb.append('"');
-            sb.append(Utf8.getDefault().decodeUtf8(bb, end, size()));
+            sb.append(bb.getString(end, size()));
             return sb.append('"');
         }
     }
@@ -734,35 +737,8 @@ public class FlexBuffers {
 
         private static final Key EMPTY = new Key(EMPTY_BB, 0, 0);
 
-        int size = -1;
-
-        Key(ByteBuffer buff, int end, int byteWidth) {
+        Key(ReadBuf buff, int end, int byteWidth) {
             super(buff, end, byteWidth);
-        }
-
-        public int size() {
-            if (size != -1) {
-                return size;
-            } else {
-                for (int i = end; ; i++) {
-                    if (bb.get(i) == 0) {
-                        size = i - end;
-                        break;
-                    }
-                }
-                return size;
-            }
-        }
-
-        public int hashCode() {
-            int h = 0;
-            final int len = size();
-            if (len > 0) {
-                for (int i = 0; i < len; i++) {
-                    h = 31 * h + bb.get(i);
-                }
-            }
-            return h;
         }
 
         /**
@@ -790,28 +766,7 @@ public class FlexBuffers {
                     break;
                 }
             }
-            return Utf8.getDefault().decodeUtf8(bb, end, size);
-        }
-
-        int compareTo(byte[] other) {
-            int ia = end;
-            int io = 0;
-            byte c1, c2;
-            do {
-                c1 = bb.get(ia);
-                c2 = other[io];
-                if (c1 == '\0')
-                    return c1 - c2;
-                ia++;
-                io++;
-                if (io == other.length) {
-                    // in our buffer we have an additional \0 byte
-                    // but this does not exist in regular Java strings, so we return now
-                    return c1 - c2;
-                }
-            }
-            while (c1 == c2);
-            return c1 - c2;
+            return bb.getString(end, size);
         }
 
         /**
@@ -833,16 +788,24 @@ public class FlexBuffers {
      */
     public static class Map extends Vector {
         private static final Map EMPTY_MAP = new Map(EMPTY_BB, 1, 1);
-        private SparseIntArray keyMap;
 
-        Map(ByteBuffer bb, int end, int byteWidth) {
+        private final int[] keyPos;
+
+        Map(ReadBuf bb, int end, int byteWidth) {
             super(bb, end, byteWidth);
-            int size = size();
-            keyMap = new SparseIntArray(size);
-            populateKeyMap();
-//            for (int i=0; i< size;i++) {
-//                keyMap.put(keyHashCode(i), i);
-//            }
+
+            // as optimization, calculates and cache real position of all keys in a map.
+            keyPos = new int[size];
+            if (size > 0) {
+                final int num_prefixed_fields = 3;
+                int keysOffset = end - (byteWidth * num_prefixed_fields);
+                int keysStart = indirect(bb, keysOffset, byteWidth);
+                int keyByteWidth = readInt(bb, keysOffset + byteWidth, byteWidth);
+                for (int i = 0; i < size; i++) {
+                    int childPos = keysStart + i * keyByteWidth;
+                    keyPos[i] = indirect(bb, childPos, keyByteWidth);
+                }
+            }
         }
 
         /**
@@ -858,7 +821,11 @@ public class FlexBuffers {
          * @return reference to value in map
          */
         public Reference get(String key) {
-            return get(keyMap.get(key.hashCode(), -1));
+            int index = binarySearch(key);
+            if (index >= 0 && index < size) {
+                return get(index);
+            }
+            return Reference.NULL_REFERENCE;
         }
 
         /**
@@ -866,9 +833,7 @@ public class FlexBuffers {
          * @return reference to value in map
          */
         public Reference get(byte[] key) {
-            KeyVector keys = keys();
-            int size = keys.size();
-            int index = binarySearch(keys, key);
+            int index = binarySearch(key);
             if (index >= 0 && index < size) {
                 return get(index);
             }
@@ -887,53 +852,6 @@ public class FlexBuffers {
                     indirect(bb, keysOffset, byteWidth),
                     readInt(bb, keysOffset + byteWidth, byteWidth),
                     FBT_KEY));
-        }
-
-        private void populateKeyMap() {
-            int len = size();
-            if (len <= 0) {
-                return;
-            }
-            final int num_prefixed_fields = 3;
-            int keysOffset = end - (byteWidth * num_prefixed_fields);
-            int keyVectorEnd = indirect(bb, keysOffset, byteWidth);
-            int keyVectorByteWidth = readInt(bb, keysOffset + byteWidth, byteWidth);
-
-            for(int index=0; index< len; index++) {
-                int childPos = keyVectorEnd + index * keyVectorByteWidth;
-                int keyPosEnd = indirect(bb, childPos, keyVectorByteWidth);
-
-                int h = 0;
-                for (int i = keyPosEnd; ; i++) {
-                    if (bb.get(i) == 0) {
-                        break;
-                    }
-                    h = 31 * h + (char) bb.get(i);
-                }
-                keyMap.put(h, index);
-            }
-        }
-
-        private int keyHashCode(int index) {
-            final int num_prefixed_fields = 3;
-            int keysOffset = end - (byteWidth * num_prefixed_fields);
-            int keyVectorEnd = indirect(bb, keysOffset, byteWidth);
-            int keyVectorByteWidth = readInt(bb, keysOffset + byteWidth, byteWidth);
-
-            int len = size();
-            if (index >= len) return 0;
-
-            int childPos = keyVectorEnd + index * keyVectorByteWidth;
-            int keyPosEnd = indirect(bb, childPos, keyVectorByteWidth);
-
-            int h = 0;
-            for (int i = keyPosEnd; ; i++) {
-                if (bb.get(i) == 0) {
-                    break;
-                }
-                h = 31 * h + (char)bb.get(i);
-            }
-            return h;
         }
 
         /**
@@ -967,14 +885,35 @@ public class FlexBuffers {
         }
 
         // Performs a binary search on a key vector and return index of the key in key vector
-        private int binarySearch(KeyVector keys, byte[] searchedKey) {
+        private int binarySearch(byte[] searchedKey) {
             int low = 0;
-            int high = keys.size() - 1;
+            int high = size - 1;
 
             while (low <= high) {
                 int mid = (low + high) >>> 1;
-                Key k = keys.get(mid);
-                int cmp = k.compareTo(searchedKey);
+                int keystart = keyPos[mid];
+                int cmp = bb.compareBytes(keystart, searchedKey);
+                
+                if (cmp < 0)
+                    low = mid + 1;
+                else if (cmp > 0)
+                    high = mid - 1;
+                else
+                    return mid; // key found
+            }
+            return -(low + 1);  // key not found
+        }
+
+        // Performs a binary search on a key vector and return index of the key in key vector
+        private int binarySearch(String searchedKey) {
+            int low = 0;
+            int high = size - 1;
+
+            while (low <= high) {
+                int mid = (low + high) >>> 1;
+                int keystart = keyPos[mid];
+
+                int cmp = bb.compareString(keystart, searchedKey);
                 if (cmp < 0)
                     low = mid + 1;
                 else if (cmp > 0)
@@ -991,9 +930,9 @@ public class FlexBuffers {
      */
     public static class Vector extends Sized {
 
-        private static final Vector EMPTY_VECTOR = new Vector(ByteBuffer.allocate(0), 1, 1);
+        private static final Vector EMPTY_VECTOR = new Vector(EMPTY_BB, 1, 1);
 
-        Vector(ByteBuffer bb, int end, int byteWidth) {
+        Vector(ReadBuf bb, int end, int byteWidth) {
             super(bb, end, byteWidth);
         }
 
@@ -1038,7 +977,7 @@ public class FlexBuffers {
          */
         public Reference get(int index) {
             long len = size();
-            if (index >= len && index <0) {
+            if (index >= len) {
                 return Reference.NULL_REFERENCE;
             }
             int packedType = byteToUnsignedInt(bb.get((int) (end + (len * byteWidth) + index)));
@@ -1052,11 +991,11 @@ public class FlexBuffers {
      */
     public static class TypedVector extends Vector {
 
-        private static final TypedVector EMPTY_VECTOR = new TypedVector(EMPTY_BB, 0, 1, FBT_INT);
+        private static final TypedVector EMPTY_VECTOR = new TypedVector(EMPTY_BB, 1, 1, FBT_INT);
 
         private final int elemType;
 
-        TypedVector(ByteBuffer bb, int end, int byteWidth, int elemType) {
+        TypedVector(ReadBuf bb, int end, int byteWidth, int elemType) {
             super(bb, end, byteWidth);
             this.elemType = elemType;
         }
