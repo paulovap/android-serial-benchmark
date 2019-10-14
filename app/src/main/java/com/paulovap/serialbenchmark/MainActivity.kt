@@ -1,15 +1,16 @@
 package com.paulovap.serialbenchmark
 
 import android.os.Bundle
-import android.os.Debug
 import android.util.Log
-import androidx.appcompat.app.AppCompatActivity
 import android.view.Menu
 import android.view.MenuItem
-import com.paulovap.benchmark.asteroids.FlexBufferAdapter
+import androidx.appcompat.app.AppCompatActivity
+import com.google.flatbuffers.FlexBuffers
+import com.google.flatbuffers.FlexBuffersBuilder
+import com.google.flatbuffers.FlexBuffersReadBuf
 import com.paulovap.benchmark.asteroids.FlexBufferReadBufAdapter
 import kotlinx.android.synthetic.main.activity_main.*
-import java.io.File
+
 
 class MainActivity : AppCompatActivity() {
 
@@ -23,9 +24,14 @@ class MainActivity : AppCompatActivity() {
     private fun testFlexBuffers() {
         val adapter = FlexBufferReadBufAdapter()
         val data = baseContext.resources.openRawResource(R.raw.asteroids).readBytes()
-        Debug.startMethodTracing("flexbuffers_base")
-        val asteroids = adapter.deserialize(data)
-        Debug.stopMethodTracing()
+//        Debug.startMethodTracing("flexbuffers_base")
+//        val asteroids = adapter.deserialize(data)
+//        Debug.stopMethodTracing()
+        val builder = FlexBuffersBuilder()
+        builder.putInt(10)
+        val b = builder.finish()
+        val s = FlexBuffersReadBuf.getRoot(b).asInt()
+        Log.d("PV", "PV $s")
     }
 
 

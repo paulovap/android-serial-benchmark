@@ -11,9 +11,10 @@ public class ArrayReadBuf implements ReadBuf {
     // Java chars. Used to speed up String comparison
     private final char[] comparisonBuffer = new char[2];
     private final byte[] buffer;
-
-    public ArrayReadBuf(byte[] buffer) {
+    private final int limit;
+    public ArrayReadBuf(byte[] buffer, int limit) {
         this.buffer = buffer;
+        this.limit = limit;
     }
 
     @Override
@@ -41,14 +42,14 @@ public class ArrayReadBuf implements ReadBuf {
 
     @Override
     public long getLong(int index) {
-        return ((((long) buffer[index + 7]) << 56) |
-                (((long) buffer[index + 6] & 0xff) << 48) |
-                (((long) buffer[index + 5] & 0xff) << 40) |
-                (((long) buffer[index + 4] & 0xff) << 32) |
-                (((long) buffer[index + 3] & 0xff) << 24) |
-                (((long) buffer[index + 2] & 0xff) << 16) |
-                (((long) buffer[index + 1] & 0xff) << 8) |
-                (((long) buffer[index] & 0xff)));
+        return ((((long) buffer[index++] & 0xff)) |
+                (((long) buffer[index++] & 0xff) << 8) |
+                (((long) buffer[index++] & 0xff) << 16) |
+                (((long) buffer[index++] & 0xff) << 24) |
+                (((long) buffer[index++] & 0xff) << 32) |
+                (((long) buffer[index++] & 0xff) << 40) |
+                (((long) buffer[index++] & 0xff) << 48) |
+                (((long) buffer[index]) << 56));
     }
 
     @Override
@@ -73,7 +74,7 @@ public class ArrayReadBuf implements ReadBuf {
 
     @Override
     public int limit() {
-        return buffer.length;
+        return limit;
     }
 
     @Override

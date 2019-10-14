@@ -1,6 +1,7 @@
 package com.google.flatbuffers;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 
 public class ByteBufferReadBuf implements ReadBuf {
 

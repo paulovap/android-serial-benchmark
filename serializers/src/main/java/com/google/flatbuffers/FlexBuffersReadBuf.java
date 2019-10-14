@@ -97,7 +97,7 @@ public class FlexBuffersReadBuf {
     /** Represent a vector of booleans type */
     public static final int FBT_VECTOR_BOOL = 36;  // To Allow the same type of conversion of type to vector type
 
-    private static final ReadBuf EMPTY_BB = new ArrayReadBuf(new byte[1]);
+    private static final ReadBuf EMPTY_BB = new ArrayReadBuf(new byte[1], 1);
 
     /**
      * Checks where a type is a typed vector
@@ -195,7 +195,7 @@ public class FlexBuffersReadBuf {
      * @return {@link Reference} to the root object
      */
     public static Reference getRoot(ByteBuffer buffer) {
-        return getRoot(buffer.hasArray() ? new ArrayReadBuf(buffer.array())
+        return getRoot(buffer.hasArray() ? new ArrayReadBuf(buffer.array(), buffer.limit())
                                          : new ByteBufferReadBuf(buffer));
     }
 
