@@ -30,7 +30,6 @@ import static com.google.flatbuffers.FlexBuffers.Unsigned.byteToUnsignedInt;
 import static com.google.flatbuffers.FlexBuffers.Unsigned.intToUnsignedLong;
 import static com.google.flatbuffers.FlexBuffers.Unsigned.shortToUnsignedInt;
 
-
 /// @file
 /// @addtogroup flatbuffers_java_api
 /// @{
@@ -147,6 +146,14 @@ public class FlexBuffersBuilder {
      */
     public FlexBuffersBuilder(ByteBuffer bb) {
         this(bb, BUILDER_FLAG_SHARE_KEYS);
+    }
+
+    // in bits to fit a unsigned int
+    private static int widthUInBits(long len) {
+        if (len <= byteToUnsignedInt((byte)0xff)) return WIDTH_8;
+        if (len <= shortToUnsignedInt((short)0xffff)) return WIDTH_16;
+        if (len <= intToUnsignedLong(0xffff_ffff)) return WIDTH_32;
+        return WIDTH_64;
     }
 
     /**
@@ -360,14 +367,6 @@ public class FlexBuffersBuilder {
 
     private Value writeString(int key, String s) {
         return writeBlob(key, s.getBytes(StandardCharsets.UTF_8), FBT_STRING);
-    }
-
-    // in bits to fit a unsigned int
-    private static int widthUInBits(long len) {
-        if (len <= byteToUnsignedInt((byte)0xff)) return WIDTH_8;
-        if (len <= shortToUnsignedInt((short)0xffff)) return WIDTH_16;
-        if (len <= intToUnsignedLong(0xffff_ffff)) return WIDTH_32;
-        return WIDTH_64;
     }
 
     private Value writeBlob(int key, byte[] blob, int type) {
@@ -703,28 +702,8 @@ public class FlexBuffersBuilder {
             return new Value(key, FBT_FLOAT, WIDTH_64, value);
         }
 
-        private byte storedPackedType() {
-            return storedPackedType(WIDTH_8);
-        }
-
-        private byte storedPackedType(int parentBitWidth) {
-            return packedType(storedWidth(parentBitWidth), type);
-        }
-
         private static byte packedType(int bitWidth, int type) {
             return (byte) (bitWidth | (type << 2));
-        }
-
-        private int storedWidth(int parentBitWidth) {
-            if (FlexBuffers.isTypeInline(type)) {
-                return Math.max(minBitWidth, parentBitWidth);
-            } else {
-                return minBitWidth;
-            }
-        }
-
-        private int elemWidth(int bufSize, int elemIndex) {
-            return elemWidth(type, minBitWidth, iValue, bufSize, elemIndex);
         }
 
         private static int elemWidth(int type, int minBitWidth, long iValue, int bufSize, int elemIndex) {
@@ -756,6 +735,26 @@ public class FlexBuffersBuilder {
 
         private static int paddingBytes(int bufSize, int scalarSize) {
             return ((~bufSize) + 1) & (scalarSize - 1);
+        }
+
+        private byte storedPackedType() {
+            return storedPackedType(WIDTH_8);
+        }
+
+        private byte storedPackedType(int parentBitWidth) {
+            return packedType(storedWidth(parentBitWidth), type);
+        }
+
+        private int storedWidth(int parentBitWidth) {
+            if (FlexBuffers.isTypeInline(type)) {
+                return Math.max(minBitWidth, parentBitWidth);
+            } else {
+                return minBitWidth;
+            }
+        }
+
+        private int elemWidth(int bufSize, int elemIndex) {
+            return elemWidth(type, minBitWidth, iValue, bufSize, elemIndex);
         }
     }
 }

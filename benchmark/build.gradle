@@ -5,14 +5,14 @@ apply plugin: 'kotlin-android-extensions'
 apply plugin: 'kotlin-kapt'
 
 android {
-    compileSdkVersion 28
+    compileSdkVersion 29
+
 
     defaultConfig {
         minSdkVersion 23
-        targetSdkVersion 28
+        targetSdkVersion 29
         versionCode 1
         versionName "1.0"
-
         testInstrumentationRunner "androidx.benchmark.junit4.AndroidBenchmarkRunner"
     }
 
@@ -44,7 +44,7 @@ dependencies {
     implementation project(':serializers')
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
     androidTestImplementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
-    androidTestImplementation "androidx.benchmark:benchmark-junit4:1.0.0-alpha06"
+    androidTestImplementation "androidx.benchmark:benchmark-junit4:1.0.0"
     androidTestImplementation 'junit:junit:4.12'
 
     androidTestImplementation 'androidx.test:runner:1.2.0'

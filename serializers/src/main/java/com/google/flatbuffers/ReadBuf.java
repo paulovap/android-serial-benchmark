@@ -77,23 +77,4 @@ interface ReadBuf {
      */
     int limit();
 
-    /**
-     * Compare a segment of ReadBuf against a given array.
-     * @param start start position of the comparison
-     * @param data array of bytes to be compared to
-     * @return {@code 0} if ReadBuf segment is equal to data; less than {@code 0} if the ReadBuf
-     *      segment is lexicographically less than data; and greater than {@code 0} if this ReadBuf
-     *      segment is lexicographically greater than data.
-     */
-    int compareBytes(int start, byte[] data);
-
-    /**
-     * Compare a segment of ReadBuf against a given {@code String}.
-     * @param start start position of the comparison
-     * @param data a String to be compared to
-     * @return {@code 0} if ReadBuf segment is equal to data; less than {@code 0} if the ReadBuf
-     *      segment is lexicographically less than data; and greater than {@code 0} if this ReadBuf
-     *      segment is lexicographically greater than data.
-     */
-    int compareString(int start, String data);
 }

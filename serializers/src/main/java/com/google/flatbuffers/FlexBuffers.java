@@ -21,7 +21,6 @@ import static com.google.flatbuffers.FlexBuffers.Unsigned.byteToUnsignedInt;
 import static com.google.flatbuffers.FlexBuffers.Unsigned.intToUnsignedLong;
 import static com.google.flatbuffers.FlexBuffers.Unsigned.shortToUnsignedInt;
 
-import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 
@@ -244,7 +243,7 @@ public class FlexBuffers {
         public boolean isNull() {
             return type == FBT_NULL;
         }
-         
+
         /**
          * Checks whether the element is boolean type
          * @return true if boolean type
@@ -636,7 +635,7 @@ public class FlexBuffers {
     // Stores size in `byte_width_` bytes before end position.
     private static abstract class Sized extends Object {
 
-        private final int size;
+        protected final int size;
 
         Sized(ByteBuffer buff, int end, int byteWidth) {
             super(buff, end, byteWidth);

@@ -1,5 +1,3 @@
-package com.google.flatbuffers;
-
 // Protocol Buffers - Google's data interchange format
 // Copyright 2008 Google Inc.  All rights reserved.
 // https://developers.google.com/protocol-buffers/
@@ -29,6 +27,8 @@ package com.google.flatbuffers;
 // THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+package com.google.flatbuffers;
 
 import java.nio.ByteBuffer;
 import static java.lang.Character.MAX_SURROGATE;
@@ -60,7 +60,7 @@ import static java.lang.Character.toCodePoint;
  * Table 3-6. <em>UTF-8 Bit Distribution</em>,</br>
  * Table 3-7. <em>Well Formed UTF-8 Byte Sequences</em>.
  */
-final public class Utf8Modified extends Utf8 {
+final public class Utf8SafeModified extends Utf8 {
 
     /**
      * Returns the number of bytes in the UTF-8-encoded form of {@code sequence}. For a string,
@@ -114,7 +114,7 @@ final public class Utf8Modified extends Utf8 {
                     // Check that we have a well-formed surrogate pair.
                     int cp = Character.codePointAt(sequence, i);
                     if (cp < MIN_SUPPLEMENTARY_CODE_POINT) {
-                        throw new Utf8Safe.UnpairedSurrogateException(i, utf16Length);
+                        throw new Utf8SafeModified.UnpairedSurrogateException(i, utf16Length);
                     }
                     i++;
                 }
@@ -197,51 +197,8 @@ final public class Utf8Modified extends Utf8 {
         return new String(resultArr, 0, resultPos);
     }
 
-    // Read a UTF-8 codepoint starting at position start.
-    // it will be saved in out.
-    //
-    // Useful for reading a codepoint and compare against Java's char,
-    // instead of converting the whole data into a String
-    // Returns the size in bytes of the codepoint
-    public static int decodeCodePoint(ReadBuf buffer, int start, char[] out) {
-        byte b = buffer.get(start);
-        int size = 4;
-        if (b == 0) {
-            size = 0;
-        } else
-        if (Utf8.DecodeUtil.isOneByte(b)) {
-            size = 1;
-            out[0] = (char) b;
-        }
-        else
-        if (Utf8Modified.DecodeUtil.isTwoBytes(b)) {
-            size = 2;
-            Utf8Modified.DecodeUtil.handleTwoBytes(b, buffer.get(start + 1), out, 0);
-        }
-        else
-        if (Utf8Modified.DecodeUtil.isThreeBytes(b)) {
-            size = 3;
-            Utf8.DecodeUtil.handleThreeBytes(
-                    b,
-                    buffer.get(start + 1),
-                    buffer.get(start + 2),
-                    out,
-                    0);
-        } else {
-            Utf8.DecodeUtil.handleFourBytes(
-                    b,
-                    buffer.get(start + 1),
-                    buffer.get(start + 2),
-                    buffer.get(start + 3),
-                    out,
-                    0);
-        }
-
-        return size;
-    }
-
-    private static String decodeUtf8Buffer(ByteBuffer buffer, int offset,
-                                           int length) {
+    public static String decodeUtf8Buffer(ByteBuffer buffer, int offset,
+                                          int length) {
         // Bitwise OR combines the sign bits so any negative value fails the check.
         if ((offset | length | buffer.limit() - offset - length) < 0) {
             throw new ArrayIndexOutOfBoundsException(
@@ -315,21 +272,6 @@ final public class Utf8Modified extends Utf8 {
 
         return new String(resultArr, 0, resultPos);
     }
-
-    /**
-     * Returns whether the byte is not a valid continuation of the form '10XXXXXX'.
-     */
-    private static boolean isNotTrailingByte(byte b) {
-        return b > (byte) 0xBF;
-    }
-
-    /**
-     * Returns the actual value of the trailing byte (removes the prefix '10') for composition.
-     */
-    private static int trailingByteValue(byte b) {
-        return b & 0x3F;
-    }
-
 
     @Override
     public int encodedLength(CharSequence in) {
@@ -507,4 +449,3 @@ final public class Utf8Modified extends Utf8 {
         }
     }
 }
-
